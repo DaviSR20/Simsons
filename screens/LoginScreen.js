@@ -12,10 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// Importar datos del JSON original
 import simpsonsData from "../assets/SIMPSONS_TV_ART/simpsons.js";
-
-// Importar mappings de imágenes
 import { seasonImages, chapterImages } from "../assets/SIMPSONS_TV_ART/images.js";
 
 const { width, height } = Dimensions.get("window");
@@ -24,9 +21,7 @@ export default function LibraryScreen() {
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedEpisode, setSelectedEpisode] = useState(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const animation = useRef(new Animated.Value(0)).current;
 
-  // Convertimos temporadas y resolvemos las imágenes
   const seasons = simpsonsData.seasons.map((s) => ({
     id: s.id.toString(),
     title: s.title,
@@ -38,55 +33,20 @@ export default function LibraryScreen() {
     })),
   }));
 
-  const openSeason = (season) => {
-    setSelectedSeason(season);
-    Animated.timing(animation, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const closeSeason = () => {
-    Animated.timing(animation, {
-      toValue: 0,
-      duration: 400,
-      useNativeDriver: true,
-    }).start(() => setSelectedSeason(null));
-  };
-
-  const openEpisode = (episode) => {
-    setSelectedEpisode(episode);
-  };
-
-  const closeEpisode = () => {
-    setSelectedEpisode(null);
-  };
-
-  const zoomStyle = {
-    transform: [
-      {
-        scale: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 1.08],
-        }),
-      },
-      {
-        translateY: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -25],
-        }),
-      },
-    ],
-  };
+  const openSeason = (season) => setSelectedSeason(season);
+  const closeSeason = () => setSelectedSeason(null);
+  const openEpisode = (episode) => setSelectedEpisode(episode);
+  const closeEpisode = () => setSelectedEpisode(null);
 
   const renderSeason = ({ item, index }) => {
     const inputRange = [(index - 1) * 190, index * 190, (index + 1) * 190];
+
     const scale = scrollX.interpolate({
       inputRange,
       outputRange: [0.9, 1, 0.9],
       extrapolate: "clamp",
     });
+
     const rotateY = scrollX.interpolate({
       inputRange,
       outputRange: ["18deg", "0deg", "-18deg"],
@@ -96,7 +56,10 @@ export default function LibraryScreen() {
     return (
       <TouchableOpacity onPress={() => openSeason(item)} activeOpacity={0.86}>
         <Animated.View
-          style={[styles.bookContainer, { transform: [{ perspective: 800 }, { scale }, { rotateY }] }]}
+          style={[
+            styles.bookContainer,
+            { transform: [{ perspective: 800 }, { scale }, { rotateY }] },
+          ]}
         >
           <Image source={item.cover} style={styles.book} resizeMode="contain" />
           <Text style={styles.bookText}>{item.title}</Text>
@@ -106,8 +69,21 @@ export default function LibraryScreen() {
   };
 
   const renderEpisode = ({ item }) => (
-    <TouchableOpacity style={styles.chapterContainer} activeOpacity={0.85} onPress={() => openEpisode(item)}>
-      <Image source={item.imageResolved} style={styles.chapterImage} resizeMode="contain" />
+    <TouchableOpacity
+      style={styles.chapterContainer}
+      activeOpacity={0.85}
+      onPress={() => openEpisode(item)}
+    >
+      <View style={styles.chapterImageWrapper}>
+        <Image
+          source={item.imageResolved}
+          style={styles.chapterImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.chapterOverlayTitle} numberOfLines={2}>
+          {item.episodeNumber}. {item.title}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
@@ -118,12 +94,15 @@ export default function LibraryScreen() {
       <View style={styles.cloudTwo} />
       <View style={styles.overlay} />
 
-      {!selectedSeason ? (
+      {!selectedSeason && (
         <Animated.FlatList
           data={seasons}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 30, alignItems: "center" }}
+          contentContainerStyle={{
+            paddingHorizontal: 30,
+            alignItems: "center",
+          }}
           keyExtractor={(item) => item.id}
           renderItem={renderSeason}
           snapToInterval={190}
@@ -133,49 +112,76 @@ export default function LibraryScreen() {
             { useNativeDriver: true }
           )}
         />
-      ) : (
-        <Animated.View style={[styles.bookDetail, zoomStyle]}>
+      )}
+
+      {selectedSeason && (
+        <View style={styles.bookDetail}>
           <Text style={styles.detailTitle}>{selectedSeason.title}</Text>
-          <Text style={styles.hintText}>Toca una imagen para ver la información del capítulo</Text>
 
           <FlatList
             data={selectedSeason.episodes}
             horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={renderEpisode}
-            contentContainerStyle={{ paddingHorizontal: 10, alignItems: "center" }}
+            showsHorizontalScrollIndicator={false}
           />
 
           <TouchableOpacity style={styles.closeButton} onPress={closeSeason}>
-            <Ionicons name="arrow-back-circle" size={42} color="#5999ff" />
+            <Ionicons name="arrow-back-circle" size={40} color="#59ecff" />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       )}
 
-      <Modal visible={!!selectedEpisode} transparent animationType="fade" onRequestClose={closeEpisode}>
+      <Modal visible={!!selectedEpisode} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             {selectedEpisode && (
               <>
-                <Image source={selectedEpisode.imageResolved} style={styles.modalImage} resizeMode="contain" />
-                <Text style={styles.chapterText}>{selectedEpisode.episodeNumber}. {selectedEpisode.title}</Text>
-                <Text style={styles.chapterSubText}>Duración: {selectedEpisode.duration} min</Text>
-                <Text style={styles.chapterSubText}>
-                  Fecha emisión: {selectedEpisode.airDate || "Desconocida"}
-                </Text>
-                <Text style={styles.synopsisText}>{selectedEpisode.synopsis}</Text>
+                <Image
+                  source={selectedEpisode.imageResolved}
+                  style={styles.modalImage}
+                  resizeMode="cover"
+                />
 
-                <TouchableOpacity style={styles.playButton} activeOpacity={0.85}>
-                  <Ionicons name="play" size={18} color="#1F2937" style={styles.playIcon} />
+                <Text style={styles.chapterText}>
+                  {selectedEpisode.episodeNumber}. {selectedEpisode.title}
+                </Text>
+
+                <Text style={styles.chapterSubText}>
+                  Duración: {selectedEpisode.duration} min
+                </Text>
+
+                <Text style={styles.chapterSubText}>
+                  Fecha emisión:{" "}
+                  {selectedEpisode.airDate || "Desconocida"}
+                </Text>
+
+                <Text style={styles.synopsisText}>
+                  {selectedEpisode.synopsis}
+                </Text>
+
+                <TouchableOpacity style={styles.playButton}>
+                  <Ionicons
+                    name="play"
+                    size={18}
+                    color="#1F2937"
+                    style={styles.playIcon}
+                  />
                   <Text style={styles.playButtonText}>Play</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={closeEpisode}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={40}
+                    color="#59ecff"
+                  />
                 </TouchableOpacity>
               </>
             )}
-
-            <TouchableOpacity style={styles.modalCloseButton} onPress={closeEpisode}>
-              <Ionicons name="close-circle" size={40} color="#59ecff" />
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -184,8 +190,18 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#090E1C", justifyContent: "center", alignItems: "center" },
-  background: { position: "absolute", width: width, height: height, top: 0, left: 0, backgroundColor: "#0044ff" },
+  container: {
+    flex: 1,
+    backgroundColor: "#70B8FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  background: {
+    position: "absolute",
+    width: width,
+    height: height,
+    backgroundColor: "#69B7FF",
+  },
   cloudOne: {
     position: "absolute",
     top: height * 0.08,
@@ -193,7 +209,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 120,
     borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.75)",
   },
   cloudTwo: {
     position: "absolute",
@@ -202,27 +218,26 @@ const styles = StyleSheet.create({
     width: 260,
     height: 140,
     borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.68)",
   },
   overlay: {
     position: "absolute",
     width: width,
     height: height,
-    backgroundColor: "rgba(59, 130, 246, 0.18)",
+    backgroundColor: "rgba(84,177,255,0.18)",
   },
   bookContainer: {
     width: 170,
     height: 235,
     marginHorizontal: 10,
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: "rgba(15,23,42,0.45)",
     borderRadius: 12,
     paddingTop: 8,
   },
   book: { width: 145, height: 205, borderRadius: 12 },
   bookText: {
-    color: "#E2E8F0",
-    marginTop: 6,
+    color: "#F8FAFC",
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
@@ -230,36 +245,66 @@ const styles = StyleSheet.create({
   bookDetail: {
     width: width * 0.94,
     height: height * 0.86,
-    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    backgroundColor: "rgba(15,23,42,0.95)",
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    zIndex: 10,
-    paddingVertical: 10,
   },
-  detailTitle: { fontSize: 27, color: "#93C5FD", marginBottom: 14, fontWeight: "800" },
-  hintText: { color: "#CBD5E1", fontSize: 13, marginBottom: 12, opacity: 0.95 },
-  chapterContainer: { marginHorizontal: 8, alignItems: "center", width: width * 0.72 },
-  chapterImage: {
+  detailTitle: {
+    fontSize: 27,
+    color: "#93C5FD",
+    marginBottom: 14,
+    fontWeight: "800",
+  },
+  chapterContainer: {
+    marginHorizontal: 8,
+    alignItems: "center",
+    width: width * 0.72,
+  },
+  chapterImageWrapper: {
     width: width * 0.66,
     height: height * 0.52,
+  },
+  chapterImage: {
+    width: "100%",
+    height: "100%",
     borderRadius: 16,
-    backgroundColor: "rgba(30, 41, 59, 0.6)",
+  },
+  chapterOverlayTitle: {
+    position: "absolute",
+    top: 14,
+    left: 10,
+    right: 10,
+    color: "#FFF",
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: "800",
   },
   chapterText: {
     color: "#F8FAFC",
-    marginTop: 6,
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
+    marginTop: 6,
   },
-  chapterSubText: { color: "#CBD5E1", fontSize: 14, textAlign: "center", marginTop: 2 },
-  synopsisText: { color: "#E2E8F0", fontSize: 13, textAlign: "center", marginTop: 10, lineHeight: 18 },
+  chapterSubText: {
+    color: "#CBD5E1",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  synopsisText: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 18,
+  },
   closeButton: { position: "absolute", top: 15, left: 15 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(2, 6, 23, 0.82)",
+    backgroundColor: "rgba(2,6,23,0.82)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -275,7 +320,7 @@ const styles = StyleSheet.create({
     width: width * 0.48,
     height: height * 0.28,
     borderRadius: 12,
-    backgroundColor: "rgba(30, 41, 59, 0.65)",
+    marginBottom: 10,
   },
   playButton: {
     marginTop: 12,
@@ -286,9 +331,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
-  playIcon: {
-    marginRight: 6,
-  },
+  playIcon: { marginRight: 6 },
   playButtonText: {
     color: "#0F172A",
     fontWeight: "800",
