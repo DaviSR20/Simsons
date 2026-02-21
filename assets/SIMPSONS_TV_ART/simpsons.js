@@ -1735,7 +1735,7 @@ const data = {
           "title": "Lisa the Skeptic",
           "duration": "24",
           "airDate": "1997-11-23",
-          "image": "9x8.webp",
+          "image": "9x08.webp",
           "synopsis": "When construction for a new mall threatens an area where a bunch of fossils were found, Lisa manages to convince Principal Skinner to schedule a school archaeological dig to find missing fossils. The field trip seems to have been futile, until Lisa finds a statue of a skeleton man with wings, which everyone in town believes is an angel and brings an apocalyptic message."
         },
         {

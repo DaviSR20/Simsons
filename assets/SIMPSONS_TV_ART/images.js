@@ -221,6 +221,7 @@ export const chapterImages = {
 "9x05.webp": require("./9x05.webp"),
 "9x06.webp": require("./9x06.webp"),
 "9x07.webp": require("./9x07.webp"),
+"9x08.webp": require("./9x08.webp"),
 "9x09.webp": require("./9x09.webp"),
 "9x10.webp": require("./9x10.webp"),
 "9x11.webp": require("./9x11.webp"),
