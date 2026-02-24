@@ -78,13 +78,15 @@ export default function LibraryScreen() {
     })),
   }));
 
-  const toggleWatched = (episodeId) => {
+  const toggleWatched = (seasonId, episodeId) => {
+    const key = `${seasonId}_${episodeId}`;
+
     setWatchedEpisodes((prev) => ({
       ...prev,
-      [episodeId]: !prev[episodeId],
+      [key]: !prev[key],
     }));
   };
-
+  
   const openSeason = (season, index) => {
     setCurrentIndex(index);
     setSelectedSeason(season);
