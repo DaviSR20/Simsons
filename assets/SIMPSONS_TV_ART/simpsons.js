@@ -5971,7 +5971,7 @@ const data = {
     {
       "id": 30,
       "title": "Temporada 30",
-      "image": "Season_30_icon.webp",
+      "image": "Season_30_Icon.webp",
       "avgColor": "#A9636D",
       "episodes": [
         {

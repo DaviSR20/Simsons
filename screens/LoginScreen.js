@@ -1,4 +1,6 @@
 import React, { useState, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect } from "react";
 import {
   View,
   Text,
@@ -17,6 +19,10 @@ import { seasonImages, chapterImages } from "../assets/SIMPSONS_TV_ART/images.js
 const { width, height } = Dimensions.get("window");
 const SEASON_CARD_WIDTH = 190;
 
+const ITEM_WIDTH = width * 0.72;
+const ITEM_SPACING = 16;
+const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
+
 export default function LibraryScreen() {
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedEpisode, setSelectedEpisode] = useState(null);
@@ -24,7 +30,37 @@ export default function LibraryScreen() {
   const horizontalScroll = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [watchedEpisodes, setWatchedEpisodes] = useState({});
 
+  useEffect(() => {
+    loadWatchedEpisodes();
+  }, []);
+
+  const loadWatchedEpisodes = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("watchedEpisodes");
+      if (stored !== null) {
+        setWatchedEpisodes(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log("Error loading watched episodes", error);
+    }
+  };
+
+  useEffect(() => {
+    saveWatchedEpisodes();
+  }, [watchedEpisodes]);
+
+  const saveWatchedEpisodes = async () => {
+    try {
+      await AsyncStorage.setItem(
+        "watchedEpisodes",
+        JSON.stringify(watchedEpisodes)
+      );
+    } catch (error) {
+      console.log("Error saving watched episodes", error);
+    }
+  };
   const seasons = (simpsonsData?.seasons || []).map((s, i) => ({
     id: s.id?.toString() || i.toString(),
     title: s.title || "Sin título",
@@ -41,6 +77,13 @@ export default function LibraryScreen() {
       airDate: e.airDate || "Desconocida",
     })),
   }));
+
+  const toggleWatched = (episodeId) => {
+    setWatchedEpisodes((prev) => ({
+      ...prev,
+      [episodeId]: !prev[episodeId],
+    }));
+  };
 
   const openSeason = (season, index) => {
     setCurrentIndex(index);
@@ -91,6 +134,10 @@ export default function LibraryScreen() {
             offset: 260 * index,
             index,
           })}
+          contentContainerStyle={{
+            paddingTop: height * 0.25,
+            paddingBottom: height * 0.35,
+          }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: verticalScroll } } }],
             { useNativeDriver: true }
@@ -108,7 +155,7 @@ export default function LibraryScreen() {
             });
             const translateY = verticalScroll.interpolate({
               inputRange,
-              outputRange: [160, 140, 160], // la card central queda en 0, las de arriba/bajo suben un poco
+              outputRange: [160, 140, 160],
               extrapolate: "clamp",
             });
             const overlayOpacity = verticalScroll.interpolate({
@@ -150,6 +197,7 @@ export default function LibraryScreen() {
         />
       )}
 
+
       {selectedSeason && (
         <View style={styles.bookDetail}>
           <Text style={styles.detailTitle}>{selectedSeason.title}</Text>
@@ -159,50 +207,78 @@ export default function LibraryScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
-            pagingEnabled={false} // desactivamos paging, usamos snap
-            snapToAlignment="center"
-            decelerationRate="fast"
-            snapToInterval={width * 0.72 + 16} // ancho del item + marginHorizontal
             contentContainerStyle={{
-              paddingHorizontal: (width - width * 0.72) / 2, // centra primer y último elemento
+              paddingHorizontal: (width - SNAP_INTERVAL - 45) / 2,
             }}
+            snapToInterval={SNAP_INTERVAL}
+            decelerationRate="fast"
+            bounces={false}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { x: horizontalScroll } } }],
               { useNativeDriver: true }
             )}
+            scrollEventThrottle={16}
             renderItem={({ item, index }) => {
               const inputRange = [
-                (index - 1) * (width * 0.72 + 16),
-                index * (width * 0.72 + 16),
-                (index + 1) * (width * 0.72 + 16),
+                (index - 1) * SNAP_INTERVAL,
+                index * SNAP_INTERVAL,
+                (index + 1) * SNAP_INTERVAL,
               ];
+
               const scale = horizontalScroll.interpolate({
                 inputRange,
                 outputRange: [0.85, 1, 0.85],
                 extrapolate: "clamp",
               });
+
               const opacity = horizontalScroll.interpolate({
                 inputRange,
-                outputRange: [0.7, 1, 0.7],
+                outputRange: [0.6, 1, 0.6],
                 extrapolate: "clamp",
               });
 
               return (
-                <TouchableOpacity
-                  style={{ transform: [{ scale }], opacity, marginHorizontal: 8 }}
-                  onPress={() => openEpisode(item)}
+                <Animated.View
+                  style={{
+                    width: ITEM_WIDTH,
+                    marginHorizontal: ITEM_SPACING / 2,
+                    transform: [{ scale }],
+                    opacity,
+                  }}
                 >
-                  <View style={styles.chapterContainer}>
-                    <Image
-                      source={item.imageResolved}
-                      style={styles.chapterImage}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.chapterOverlayTitle}>
-                      {item.episodeNumber}. {item.title}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={() => openEpisode(item)}>
+                    <View style={styles.chapterContainer}>
+                      <Image
+                        source={item.imageResolved}
+                        style={styles.chapterImage}
+                        resizeMode="cover"
+                      />
+
+                      {/* ICONO VISTO */}
+                      <TouchableOpacity
+                        style={styles.watchedIcon}
+                        onPress={() => toggleWatched(selectedSeason.id, item.id)}                      >
+                        <Ionicons
+                          name={
+                            watchedEpisodes[`${selectedSeason.id}_${item.id}`]
+                              ? "checkmark-circle"
+                              : "ellipse-outline"
+                          }
+                          size={28}
+                          color={
+                            watchedEpisodes[`${selectedSeason.id}_${item.id}`]
+                              ? "#22D3EE"
+                              : "#FFF"
+                          }
+                        />
+                      </TouchableOpacity>
+
+                      <Text style={styles.chapterOverlayTitle}>
+                        {item.episodeNumber}. {item.title}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
               );
             }}
           />
@@ -251,9 +327,8 @@ export default function LibraryScreen() {
   );
 }
 
-// --- estilos igual que antes ---
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#70B8FF", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#70B8FF" },
   background: { position: "absolute", width, height, backgroundColor: "#69B7FF" },
   cloudLarge: { position: "absolute", top: height * 0.08, left: -40, width: 260, height: 120, flexDirection: "row", alignItems: "flex-end" },
   cloudMedium: { position: "absolute", top: height * 0.2, right: -50, width: 220, height: 100, flexDirection: "row", alignItems: "flex-end" },
@@ -265,11 +340,11 @@ const styles = StyleSheet.create({
   bookContainer: { width: 170, height: 235, marginHorizontal: 10, alignItems: "center", backgroundColor: "rgba(15,23,42,0.45)", borderRadius: 12, paddingTop: 8 },
   book: { width: 145, height: 205, borderRadius: 12 },
   bookText: { color: "#F8FAFC", fontSize: 13, fontWeight: "700", textAlign: "center" },
-  bookDetail: { width: width * 0.88, height: height * 0.65, backgroundColor: "rgba(15,23,42,0.95)", borderRadius: 18, justifyContent: "flex-start", alignItems: "center", position: "absolute", paddingTop: 48 },
-  detailTitle: { fontSize: 27, color: "#93C5FD", marginBottom: 8, fontWeight: "800" },
-  chapterContainer: { marginHorizontal: 8, alignItems: "center", width: width * 0.72 },
+  bookDetail: { width: width * 0.88, height: height * 0.65, backgroundColor: "rgba(15,23,42,0.95)", borderRadius: 18, position: "absolute", top: height * 0.175, alignSelf: "center", paddingTop: 48, },
+  detailTitle: { fontSize: 27, color: "#93C5FD", marginBottom: 8, fontWeight: "800", alignSelf: "center" },
+  chapterContainer: { alignItems: "center", justifyContent: "center", width: ITEM_WIDTH },
   chapterImageWrapper: { width: width * 0.66, height: height * 0.52 },
-  chapterImage: { width: "100%", height: "100%", borderRadius: 16 },
+  chapterImage: { width: ITEM_WIDTH, height: width * 0.65, borderRadius: 16, marginTop: 60, },
   chapterOverlayTitle: { position: "absolute", top: 14, left: 10, right: 10, color: "#FFF", textAlign: "center", fontSize: 15, fontWeight: "800" },
   chapterText: { color: "#F8FAFC", fontSize: 16, fontWeight: "700", textAlign: "center", marginTop: 6 },
   chapterSubText: { color: "#CBD5E1", fontSize: 14, textAlign: "center", marginTop: 2 },
@@ -285,4 +360,5 @@ const styles = StyleSheet.create({
   stackCard: { height: 250, width: width * 0.55, alignSelf: "center", marginVertical: 10, borderRadius: 20, backgroundColor: "rgba(15,23,42,0.6)", justifyContent: "top", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 15 },
   stackImage: { width: "85%", height: "75%", borderRadius: 20, marginTop: 20 },
   stackTitle: { position: "absolute", bottom: 10, color: "#FFF", fontWeight: "800", fontSize: 16 },
+  watchedIcon: { position: "absolute", bottom: 12, right: 12, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 4, },
 });
